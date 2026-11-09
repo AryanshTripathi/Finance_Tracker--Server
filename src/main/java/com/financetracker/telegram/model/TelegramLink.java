@@ -1,4 +1,4 @@
-package com.financetracker.model;
+package com.financetracker.telegram.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
