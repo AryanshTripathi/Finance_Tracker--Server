@@ -22,6 +22,8 @@ public class User {
     @GeneratedValue
     private UUID id;
 
+    private Long telegramChatId;
+
     private String email;
     private String passwordHash;
     private String displayName;
