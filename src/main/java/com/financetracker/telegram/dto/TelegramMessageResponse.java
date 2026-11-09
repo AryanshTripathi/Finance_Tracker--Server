@@ -1,4 +1,4 @@
-package com.financetracker.telegram;
+package com.financetracker.telegram.dto;
 
 public record TelegramMessageResponse(
     boolean ok,

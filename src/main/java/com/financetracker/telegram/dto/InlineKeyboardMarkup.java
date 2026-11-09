@@ -1,4 +1,4 @@
-package com.financetracker.telegram;
+package com.financetracker.telegram.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

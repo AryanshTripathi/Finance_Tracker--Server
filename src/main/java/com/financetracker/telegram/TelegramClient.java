@@ -1,4 +1,9 @@
 package com.financetracker.telegram;
+
+import com.financetracker.telegram.dto.InlineKeyboardMarkup;
+import com.financetracker.telegram.dto.TelegramMessageRequest;
+import com.financetracker.telegram.dto.TelegramMessageResponse;
+import com.financetracker.telegram.dto.TelegramUpdateResponse;
 import org.springframework.web.client.RestClient;
 
 public class TelegramClient {
