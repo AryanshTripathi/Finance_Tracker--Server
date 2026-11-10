@@ -1,8 +1,8 @@
 package com.financetracker.utils;
 
-import com.financetracker.dto.UserCreateResponse;
-import com.financetracker.dto.UserLoginResponse;
-import com.financetracker.model.User;
+import com.financetracker.core.dto.UserCreateResponse;
+import com.financetracker.core.dto.UserLoginResponse;
+import com.financetracker.core.model.User;
 
 public final class ResponseConverter {
     private ResponseConverter() {}

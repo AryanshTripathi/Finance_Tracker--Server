@@ -1,15 +1,15 @@
-package com.financetracker.service;
+package com.financetracker.core.service;
 
-import com.financetracker.auth.JwtService;
-import com.financetracker.dto.UserCreateRequest;
-import com.financetracker.dto.UserCreateResponse;
-import com.financetracker.dto.UserLoginRequest;
-import com.financetracker.dto.UserLoginResponse;
+import com.financetracker.config.JwtService;
+import com.financetracker.core.dto.UserCreateRequest;
+import com.financetracker.core.dto.UserCreateResponse;
+import com.financetracker.core.dto.UserLoginRequest;
+import com.financetracker.core.dto.UserLoginResponse;
 import com.financetracker.exception.IncorrectPasswordException;
 import com.financetracker.exception.UserAlreadyRegisteredException;
 import com.financetracker.exception.UserNotRegisteredException;
-import com.financetracker.model.User;
-import com.financetracker.repository.UserRepository;
+import com.financetracker.core.model.User;
+import com.financetracker.core.repository.UserRepository;
 import com.financetracker.utils.ResponseConverter;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

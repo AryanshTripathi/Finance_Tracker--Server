@@ -1,4 +1,4 @@
-package com.financetracker.dto;
+package com.financetracker.core.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

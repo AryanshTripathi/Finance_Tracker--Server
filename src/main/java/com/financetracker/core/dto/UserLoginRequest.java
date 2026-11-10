@@ -1,16 +1,14 @@
-package com.financetracker.dto;
+package com.financetracker.core.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record UserCreateRequest(
+public record UserLoginRequest (
     @NotBlank
-    String displayName,
     @Email
-    @NotBlank
     String email,
     @NotBlank
     @Size(min=8)
-    String plainPassword
+    String password
 ) {}

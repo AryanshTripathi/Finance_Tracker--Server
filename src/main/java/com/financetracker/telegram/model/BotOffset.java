@@ -1,4 +1,4 @@
-package com.financetracker.model;
+package com.financetracker.telegram.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -12,21 +12,20 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
 import java.util.UUID;
 
-
 @Entity
-@Table(name = "users")
 @Getter
 @Setter
-public class User {
+@Table(name = "telegram_bot_poll_state")
+public class BotOffset {
+    public BotOffset() {}
+    public BotOffset(Long lastOffset) {
+        this.lastOffset = lastOffset;
+    }
+
     @Id
     @GeneratedValue
     private UUID id;
-
-    private Long telegramChatId;
-
-    private String email;
-    private String passwordHash;
-    private String displayName;
+    private Long lastOffset;
 
     @CreationTimestamp
     private Instant createdAt;
