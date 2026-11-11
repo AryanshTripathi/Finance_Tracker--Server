@@ -4,13 +4,18 @@ import com.financetracker.telegram.dto.InlineKeyboardMarkup;
 import com.financetracker.telegram.dto.TelegramMessageRequest;
 import com.financetracker.telegram.dto.TelegramMessageResponse;
 import com.financetracker.telegram.dto.TelegramUpdateResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+@Component
 public class TelegramClient {
     private final RestClient restClient;
     private final int DEFAULT_TIMEOUT;
 
-    public TelegramClient(String botToken) {
+    @Autowired
+    public TelegramClient(@Value("${telegram.bot_token}") String botToken) {
         this.DEFAULT_TIMEOUT = 30;
         this.restClient = RestClient.builder().baseUrl("https://api.telegram.org/bot" + botToken).build();
     }

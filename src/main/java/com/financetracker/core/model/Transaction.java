@@ -1,4 +1,4 @@
-package com.financetracker.model;
+package com.financetracker.core.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;

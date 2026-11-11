@@ -1,6 +1,5 @@
 package com.financetracker.config;
 
-import com.financetracker.auth.JwtService;
 import jakarta.servlet.FilterChain;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

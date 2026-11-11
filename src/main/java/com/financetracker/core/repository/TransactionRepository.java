@@ -1,6 +1,6 @@
-package com.financetracker.repository;
+package com.financetracker.core.repository;
 
-import com.financetracker.model.Transaction;
+import com.financetracker.core.model.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package com.financetracker.auth;
+package com.financetracker.config;
 
 import com.financetracker.exception.InvalidStringUuidConversionException;
 import io.jsonwebtoken.Jwts;

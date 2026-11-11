@@ -1,6 +1,5 @@
 package com.financetracker.config;
 
-import com.financetracker.auth.JwtService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
