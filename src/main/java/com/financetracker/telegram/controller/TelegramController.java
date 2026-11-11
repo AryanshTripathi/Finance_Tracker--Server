@@ -1,12 +1,8 @@
 package com.financetracker.telegram.controller;
 
-import com.financetracker.core.model.User;
-import com.financetracker.core.repository.UserRepository;
-import com.financetracker.exception.UserNotRegisteredException;
 import com.financetracker.telegram.dto.TelegramLinkRequest;
-import com.financetracker.telegram.model.TelegramLink;
-import com.financetracker.telegram.repository.TelegramLinkRepository;
 import com.financetracker.telegram.service.TelegramPollingService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,7 +19,9 @@ public class TelegramController {
     }
 
     @PostMapping("/telegram/link")
-    public boolean connectWithTelegramBot(@AuthenticationPrincipal UUID userId, @RequestBody TelegramLinkRequest linkPayoad) {
-        return telegramPollingService.handleTelegramConnection(userId, linkPayoad);
+    ResponseEntity<Void> connectWithTelegramBot(@AuthenticationPrincipal UUID userId, @RequestBody TelegramLinkRequest linkPayload) {
+        boolean isBotInitialized = telegramPollingService.handleTelegramConnection(userId, linkPayload);
+        // Add logging
+        return ResponseEntity.noContent().build();
     }
 }

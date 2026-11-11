@@ -6,7 +6,7 @@ import java.util.UUID;
 
 import com.financetracker.core.model.User;
 import com.financetracker.core.repository.UserRepository;
-import com.financetracker.exception.TelegramGetUpdateException;
+import com.financetracker.exception.*;
 import com.financetracker.telegram.TelegramClient;
 import com.financetracker.telegram.dto.TelegramLinkRequest;
 import com.financetracker.telegram.dto.TelegramMessageResponse;
@@ -15,7 +15,6 @@ import com.financetracker.telegram.model.BotOffset;
 import com.financetracker.telegram.model.TelegramLink;
 import com.financetracker.telegram.repository.BotOffsetRepository;
 import com.financetracker.telegram.repository.TelegramLinkRepository;
-import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -40,17 +39,23 @@ public class TelegramPollingService {
     }
 
     public boolean handleTelegramConnection(UUID userId, TelegramLinkRequest linkRequest) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotRegisteredException("User not found"));
         TelegramLink link = telegramLinkRepository.findByCode(linkRequest.code())
-                .orElseThrow(() -> new RuntimeException("Code not found"));
+                .orElseThrow(CodeInvalidException::new);
+
+        if(user.getTelegramChatId() != null) {
+            throw new UserAlreadyLinkedException();
+        }
 
         if(link.getExpiresAt().isAfter(Instant.now())) {
             user.setTelegramChatId(link.getChatId());
             userRepository.save(user);
+            telegramLinkRepository.delete(link);
             telegramClient.sendMessage(link.getChatId(), AUTH_SUCCESS_MSG, null);
             return true;
+        } else {
+            throw new CodeExpiredException();
         }
-        return false;
     }
 
     @Scheduled(fixedDelay = 5000L)
@@ -83,7 +88,7 @@ public class TelegramPollingService {
     /// If the update is a callback query then just update the category of the corresponding transaction
     /// @param updates: Latest updates from the last updated offset
     private Long handleBotUpdate(TelegramUpdateResponse updates) {
-        Long maxUpdateOffset = 0L;
+        long maxUpdateOffset = 0L;
         for(TelegramUpdateResponse.Result result : updates.result()) {
             maxUpdateOffset = Math.max(maxUpdateOffset, result.updateId());
             if(result.callbackQuery() != null) {
