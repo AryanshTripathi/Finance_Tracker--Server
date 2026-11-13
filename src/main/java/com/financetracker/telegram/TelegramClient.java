@@ -31,6 +31,12 @@ public class TelegramClient {
         return sendMessageResponse;
     }
 
+    public TelegramMessageResponse sendMessage(TelegramMessageRequest telegramMessage) {
+        TelegramMessageResponse sendMessageResponse = restClient
+                .post().uri("/sendMessage").body(telegramMessage).retrieve().body(TelegramMessageResponse.class);
+        return sendMessageResponse;
+    }
+
     public TelegramUpdateResponse getUpdate(Long offset) {
         return restClient.get().uri(uriBuilder -> uriBuilder
                 .path("/getUpdates")

@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    //TODO: UserNoLinkedException is not handled yet. Design pending for that
+
     @ExceptionHandler({UserAlreadyRegisteredException.class, UserAlreadyLinkedException.class})
     public ResponseEntity<ErrorResponse> handleDuplicateEmail(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(ex.getMessage()));
