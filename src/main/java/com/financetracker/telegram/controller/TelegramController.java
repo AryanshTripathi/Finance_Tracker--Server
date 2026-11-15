@@ -1,5 +1,6 @@
 package com.financetracker.telegram.controller;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.financetracker.telegram.dto.TelegramLinkRequest;
 import com.financetracker.telegram.service.TelegramPollingService;
 import org.springframework.http.ResponseEntity;
@@ -18,10 +19,21 @@ public class TelegramController {
         this.telegramPollingService = telegramPollingService;
     }
 
+    private record SendMessagePayload(
+        @JsonProperty("transaction_id")
+        UUID transactionId
+    ) {};
+
     @PostMapping("/telegram/link")
     ResponseEntity<Void> connectWithTelegramBot(@AuthenticationPrincipal UUID userId, @RequestBody TelegramLinkRequest linkPayload) {
         boolean isBotInitialized = telegramPollingService.handleTelegramConnection(userId, linkPayload);
         // Add logging
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/telegram/sendMessage")
+    ResponseEntity<Void> sendMockMessage(@AuthenticationPrincipal UUID userId, @RequestBody SendMessagePayload messagePayload ) {
+        telegramPollingService.pollRabbitMqMessage(userId, messagePayload.transactionId());
         return ResponseEntity.noContent().build();
     }
 }

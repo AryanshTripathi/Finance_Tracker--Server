@@ -28,6 +28,13 @@ public class TelegramClient {
         TelegramMessageRequest telegramMessage = new TelegramMessageRequest(chat_id, message, inlineKeyboardDetails);
         TelegramMessageResponse sendMessageResponse = restClient
                 .post().uri("/sendMessage").body(telegramMessage).retrieve().body(TelegramMessageResponse.class);
+
+        return sendMessageResponse;
+    }
+
+    public TelegramMessageResponse sendMessage(TelegramMessageRequest telegramMessage) {
+        TelegramMessageResponse sendMessageResponse = restClient
+                .post().uri("/sendMessage").body(telegramMessage).retrieve().body(TelegramMessageResponse.class);
         return sendMessageResponse;
     }
 

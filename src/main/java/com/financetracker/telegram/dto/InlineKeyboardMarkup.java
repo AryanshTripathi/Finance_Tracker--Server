@@ -7,10 +7,11 @@ import java.util.List;
 public record InlineKeyboardMarkup(
         @JsonProperty("inline_keyboard")
         List<List<InlineKeyboardButton>> inlineKeyboard
-) {}
+) {
+        public record InlineKeyboardButton(
+                String text,
+                @JsonProperty("callback_data")
+                String callbackData
+        ) {}
+}
 
-record InlineKeyboardButton(
-        String text,
-        @JsonProperty("callback_data")
-        String callbackData
-) {}

@@ -57,13 +57,17 @@ An incoming Telegram message has no built-in marker saying what it's "about" —
 - [ ] When a transaction needs categorization, build an inline keyboard: existing categories as buttons (`callback_data` carrying transaction id + category) plus a "Custom" option.
 - [ ] After `telegramClient.sendMessage(...)`, read the returned `message_id` out of the response and persist it onto that transaction's `categorizationPromptMessageId`; set `categorizationRequestedAt = now`.
 
-### Retry / escalation cleanup job
-- [ ] New `@Scheduled` job, separate cadence from the polling job (not every 5s — e.g. hourly), scanning `Transaction` rows with `categorizationStatus = UNCATEGORIZED` and `categorizationRequestedAt` older than the timeout.
-- [ ] If `categorizationAttempts < maxRetries` → re-send the prompt, bump `attempts`, reset `categorizationRequestedAt`.
-- [ ] If `categorizationAttempts >= maxRetries` → clear pending fields, flip to the terminal "abandoned" status, optionally notify the user.
-- [ ] Decide: fixed timeout per retry, or escalating backoff (e.g. 10 min → 1 hr → give up)? — still open.
+### Retry / escalation for forgotten/malformed categorization — now planned as a new Service C (deferred)
+- [ ] **Deferred** — current focus is just the Gmail service (A) and the Telegram service (B). Revisit C only once both of those are built and working.
+- [ ] Decided: this becomes its own standalone service (Service C), not a scheduled job inside B. A = Gmail ingestion → publishes new transactions to Q1. B = consumes Q1, owns the Telegram conversation (prompts + button/reply handling). C = polls every ~12h for `Transaction` rows stuck pending (no reply, or malformed reply) and republishes them toward B via new queue(s), rather than B scanning its own DB on a timer.
+- [ ] Open — race condition: nothing yet stops B (handling a just-arrived late reply) and C (scanning that same transaction as "stale" in the same window) from acting on one transaction concurrently. Needs optimistic locking or an atomic claim on the row before this is safe.
+- [ ] Open — missing third outcome: the design so far only has 2 output queues (forgotten, malformed), but there are 3 real outcomes — forgotten+retry, malformed+retry, and exhausted-retries+give-up (final notice telling the user to categorize via the app instead). Need a 3rd queue/message type, or a `terminal: true` flag on the existing two.
+- [ ] Open — decide whether forgotten vs malformed truly need separate queues, or one queue with a `reason` field is enough; splitting only earns its keep if tracking malformed-response rate separately as a UX signal matters.
+- [ ] Open — don't conflate broker-level redelivery (consumer crash → DLX) with business-level retry (user didn't respond → re-prompt); these need distinct failure paths across both A→Q1→B and the new C→B queues.
+- [ ] Open — fixed timeout per retry, or escalating backoff (e.g. 10 min → 1 hr → give up)?
 
 ### Still open / deferred
 - [ ] Transactional outbox vs accept-dual-write-risk for the Gmail service's DB-write + RabbitMQ-publish step — discussed at length, not yet decided.
 - [ ] `GmailPollingService` and the RabbitMQ exchange/queue/DLX topology between the two services — not yet built.
 - [ ] Web UI (or API-only) flow for entering the Telegram link code — not yet decided/built.
+- [ ] Service C (forgotten/malformed reminder service) — see section above; parked until A and B are done.
