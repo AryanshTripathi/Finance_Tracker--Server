@@ -26,4 +26,6 @@ public class AuthController {
     UserLoginResponse login(@RequestBody UserLoginRequest loginDetails) {
         return authService.login(loginDetails);
     }
+
+
 }

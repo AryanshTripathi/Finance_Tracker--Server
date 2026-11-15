@@ -20,11 +20,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtService jwtService) {
+    public SecurityFilterChain filterChain
+            (HttpSecurity http, JwtService jwtService, JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
         JwtAuthFilter jwtAuthFilter = new JwtAuthFilter(jwtService);
 
         http
             .csrf(AbstractHttpConfigurer::disable)
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth ->
                 auth.requestMatchers("/auth/**").permitAll().anyRequest().authenticated()
