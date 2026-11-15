@@ -3,11 +3,9 @@ import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.financetracker.core.model.Category;
 import com.financetracker.core.model.Transaction;
@@ -20,8 +18,10 @@ import com.financetracker.telegram.TelegramClient;
 import com.financetracker.telegram.dto.*;
 import com.financetracker.telegram.model.BotOffset;
 import com.financetracker.telegram.model.TelegramLink;
+import com.financetracker.telegram.model.TelegramMessageTransaction;
 import com.financetracker.telegram.repository.BotOffsetRepository;
 import com.financetracker.telegram.repository.TelegramLinkRepository;
+import com.financetracker.telegram.repository.TelegramMessageTransactionRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -33,25 +33,31 @@ public class TelegramPollingService {
     private final TelegramLinkRepository telegramLinkRepository;
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
+    private final TelegramMessageTransactionRepository telegramMessageTransactionRepository;
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private static final String START_CMD = "/start";
     private static final String START_MSG = "Paste this Code on the Web App to validate the chat with the Bot";
-    private static final String AUTH_SUCCESS_MSG = "Account Authentication Successful. You will now receive updates about your daily transactions";
+    private static final String AUTH_SUCCESS_MSG = "Account Authentication Successful. You will now receive updates about your daily transactions.\nPLEASE READ THE INSTRUCTIONS IN BOT DESCRIPTION FOR BETTER EXPERIENCE";
+    private static final String UPDATE_NOT_ALLOWED_MSG = "The Transaction is already categorized. Please update the category from the application";
+
+    private static final Pattern CUSTOM_CATEGORY_PATTERN = Pattern.compile("^\\(([a-zA-Z0-9]+)\\)$");
 
     public TelegramPollingService(TelegramClient telegramClient,
                                   UserRepository userRepository,
                                   BotOffsetRepository botOffsetRepository,
                                   TelegramLinkRepository telegramLinkRepository,
                                   TransactionRepository transactionRepository,
-                                  CategoryRepository categoryRepository) {
+                                  CategoryRepository categoryRepository,
+                                  TelegramMessageTransactionRepository telegramMessageTransactionRepository) {
         this.telegramClient = telegramClient;
         this.userRepository = userRepository;
         this.botOffsetRepository = botOffsetRepository;
         this.telegramLinkRepository = telegramLinkRepository;
         this.transactionRepository = transactionRepository;
         this.categoryRepository = categoryRepository;
+        this.telegramMessageTransactionRepository = telegramMessageTransactionRepository;
     }
 
     public boolean handleTelegramConnection(UUID userId, TelegramLinkRequest linkRequest) {
@@ -82,7 +88,8 @@ public class TelegramPollingService {
         TelegramUpdateResponse updates = telegramClient.getUpdate(offset);
 
         if(!updates.ok()) {
-            throw new TelegramGetUpdateException();
+            // ADD LOGGING
+            return;
         }
         if(updates.result().isEmpty()) {
             // ADD LOGGING
@@ -94,7 +101,7 @@ public class TelegramPollingService {
         botOffsetRepository.save(offsetRecord);
     }
 
-//    @Scheduled(fixedDelay =  5 * 1000L)
+//    @Scheduled(fixedDelay =  5 * 60 * 1000L)
     public void pollRabbitMqMessage(UUID userId, UUID transactionId) {
         User user = userRepository.findById(userId).orElseThrow(UserNotRegisteredException::new);
         Long chatId = user.getTelegramChatId();
@@ -102,10 +109,25 @@ public class TelegramPollingService {
             throw new UserNotLinkedException();
         }
         List<Category> categories = categoryRepository.findByUserIdOrIsDefaultTrue(userId);
+        Transaction transaction = transactionRepository.findById(transactionId).orElseThrow(
+                () -> new TransactionNotFoundException(transactionId)
+        );
 
-        TelegramMessageRequest messageRequest = generateNewCategorizationMessage(chatId, transactionId, categories);
+        TelegramMessageRequest messageRequest = generateNewCategorizationMessage(chatId, transaction, categories);
         TelegramMessageResponse messageSendResponse = telegramClient.sendMessage(messageRequest);
         // Add logging for response
+        if(!messageSendResponse.ok()) {
+            // ADD LOGGING
+            throw new TelegramSendMessageException();
+        }
+
+        Long messageId = messageSendResponse.result().messageId();
+
+        transaction.setCategorizationStatus(Transaction.CategorizationStatus.NOTIFIED);
+        transactionRepository.save(transaction);
+
+        TelegramMessageTransaction messageTransactionRecord = new TelegramMessageTransaction(chatId, messageId, transactionId);
+        telegramMessageTransactionRepository.save(messageTransactionRecord);
     }
 
     /// Can we use threads to start processing of multiple results simultaneously
@@ -122,21 +144,118 @@ public class TelegramPollingService {
         for(TelegramUpdateResponse.Result result : updates.result()) {
             maxUpdateOffset = Math.max(maxUpdateOffset, result.updateId());
             if(result.callbackQuery() != null) {
-                // Update category of the transaction
+                handleCallbackQueryResponse(result.callbackQuery());
             } else if(result.message() != null && result.message().text() != null) {
-                if(result.message().text().startsWith("/")) {
+                if(result.message().text().equals(START_CMD)) {
                     //A command: To be processed separately
-                    if (result.message().text().equals(START_CMD)) {
-                        handleNewChatInit(result.message());
-                    }
+                    handleNewChatInit(result.message());
                 } else {
-                    // Handle message replies
+                    handleMessageResponse(result.message());
                 }
-                // Create new category and Update category of the transaction
             }
-            // Add logging for malformed or non-text input
+            // TODO: Add logging for malformed or non-text input
         }
         return maxUpdateOffset + 1;
+    }
+
+    private void handleCallbackQueryResponse(TelegramUpdateResponse.CallbackQuery callbackQuery) {
+        String[] callbackData = callbackQuery.data().split(":");
+        String encodedTransactionId = callbackData[1];
+        String encodedCategoryId = callbackData[2];
+        UUID transactionId = decompactUuid(encodedTransactionId);
+        UUID categoryId = decompactUuid(encodedCategoryId);
+
+        boolean isCategoryIdValid = categoryRepository.existsById(categoryId);
+        if(!isCategoryIdValid) {
+            // TODO: ADD LOGGING
+            return;
+        }
+
+        Optional<Transaction> selectedPossibleTransaction = transactionRepository.findById(transactionId);
+        if(selectedPossibleTransaction.isEmpty()) {
+            // TODO: ADD LOGGING
+            return;
+        }
+
+        Transaction selectedTransaction = selectedPossibleTransaction.get();
+        if(selectedTransaction.getCategorizationStatus().equals(Transaction.CategorizationStatus.CATEGORIZED)) {
+            TelegramMessageResponse res = telegramClient.sendMessage(callbackQuery.message().chat().id(), UPDATE_NOT_ALLOWED_MSG, null);
+            if(!res.ok()) {
+                // TODO: ADD LOGGING
+            }
+            return;
+        }
+
+        selectedTransaction.setCategorizationStatus(Transaction.CategorizationStatus.CATEGORIZED);
+        selectedTransaction.setCategoryId(categoryId);
+        transactionRepository.save(selectedTransaction);
+    }
+
+    /// Message must be reply to the original message
+    /// New category should be wrapped in '()', must be unique and alphanumeric
+    private void handleMessageResponse(TelegramUpdateResponse.MessageDetails messageDetails) {
+        // Validate the message replies to a particular message
+        if(messageDetails.replyToMessage() == null) {
+            return;
+        }
+        // Validate the replied to message is actually a categorization bot message
+        TelegramUpdateResponse.MessageDetails replyToMessage = messageDetails.replyToMessage();
+        Long chatId = replyToMessage.chat().id();
+        Long messageId = replyToMessage.messageId();
+        Optional<TelegramMessageTransaction> messageTransactionRecord =
+                telegramMessageTransactionRepository.findByChatIdAndMessageId(
+                        chatId, messageId
+                );
+        if (messageTransactionRecord.isEmpty()) {
+            // Replied-To Message not a transaction categorization message
+            // ADD LOGGING;
+            return;
+        }
+        Optional<User> userDetails = userRepository.findByTelegramChatId(chatId);
+        if(userDetails.isEmpty()) {
+            // User not found for this telegram chat
+            return;
+        }
+        UUID userId = userDetails.get().getId();
+        // Validate transaction actually exists
+        UUID transactionId = messageTransactionRecord.get().getTransactionId();
+        Optional<Transaction> transactionDetails = transactionRepository.findById(transactionId);
+        if(transactionDetails.isEmpty()) {
+            // Transaction for the given message-transaction record not found. Something tampered with the DB
+            return;
+        }
+        // Validate new category passes all the necessary checks
+        if(!isNewCategoryMessageValid(messageDetails.text())) {
+            // Category Does not pass the requirement
+            return;
+        }
+        // Validate the category is unique
+        String suggestedCategoryName = messageDetails.text().substring(1, messageDetails.text().length() - 1);
+        if(categoryRepository.existsByNameAndUserId(suggestedCategoryName, userId)) {
+            // Same category already exists
+            return;
+        }
+        Transaction transaction = transactionDetails.get();
+        if(transaction.getCategorizationStatus().equals(Transaction.CategorizationStatus.CATEGORIZED)) {
+            // TODO: Send a message telling user that transaction is already categorized, further update is allowed in app
+            TelegramMessageResponse res = telegramClient.sendMessage(messageDetails.chat().id(), UPDATE_NOT_ALLOWED_MSG, null);
+            if(!res.ok()) {
+                // ADD LOGGING
+            }
+            return;
+        }
+
+        // Create a new category for the user
+
+        Category.CategoryType categoryType = (List.of("INCOME", "REFUND")
+                .contains(transaction.getType().toString())) ? Category.CategoryType.INCOME : Category.CategoryType.EXPENSE;
+        Category newCategory = new Category(messageDetails.text(), categoryType, userId);
+        Category savedCategory = categoryRepository.save(newCategory);
+
+        // Update the category in the transaction
+        transaction.setCategoryId(savedCategory.getId());
+        transaction.setCategorizationStatus(Transaction.CategorizationStatus.CATEGORIZED);
+        transactionRepository.save(transaction);
     }
 
     private void handleNewChatInit(TelegramUpdateResponse.MessageDetails messageDetails) {
@@ -158,7 +277,7 @@ public class TelegramPollingService {
 
         String message = START_MSG + "\n" + code;
         TelegramMessageResponse sendMessageResponse = telegramClient.sendMessage(chat_id, message, null);
-        // Log the response
+        // TODO: Add logging
     }
 
     private String generateCode() {
@@ -166,8 +285,7 @@ public class TelegramPollingService {
         return String.valueOf(number);
     }
 
-    private TelegramMessageRequest generateNewCategorizationMessage(Long chatId, UUID transactionId, List<Category> existingCategories) {
-        Transaction transaction = transactionRepository.findById(transactionId).orElseThrow(() -> new TransactionNotFoundException(transactionId));
+    private TelegramMessageRequest generateNewCategorizationMessage(Long chatId, Transaction transaction, List<Category> existingCategories) {
         String type = (List.of("INCOME", "REFUND").contains(transaction.getType().toString())) ? "CREDIT 🟢" : "DEBIT 🔴";
 
         String textMessage = """
@@ -180,7 +298,7 @@ public class TelegramPollingService {
 
               Please select a category for this transaction 👇
               """.formatted(transaction.getCurrency(), transaction.getAmount(), type, transaction.getTransactionDate());
-        InlineKeyboardMarkup categoryButtons = buildCategoryButtons(transactionId, existingCategories);
+        InlineKeyboardMarkup categoryButtons = buildCategoryButtons(transaction.getId(), existingCategories);
         return new TelegramMessageRequest(chatId, textMessage, categoryButtons);
     }
 
@@ -221,5 +339,13 @@ public class TelegramPollingService {
         long mostSigBits = buffer.getLong();
         long leastSigBits = buffer.getLong();
         return new UUID(mostSigBits, leastSigBits);
+    }
+
+    private boolean isNewCategoryMessageValid(String message) {
+        if(message.length() <= 2) {
+            return false;
+        }
+        Matcher matcher = CUSTOM_CATEGORY_PATTERN.matcher(message);
+        return matcher.matches();
     }
 }

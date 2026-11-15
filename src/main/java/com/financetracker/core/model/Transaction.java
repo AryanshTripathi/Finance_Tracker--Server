@@ -23,7 +23,7 @@ public class Transaction {
     private UUID id;
 
     public enum TransactionType {INCOME, EXPENSE, TRANSFER, REFUND};
-    public enum CategorizationStatus {UNCATEGORIZED,CATEGORIZED,AUTO_CATEGORIZED};
+    public enum CategorizationStatus {UNCATEGORIZED,CATEGORIZED,AUTO_CATEGORIZED,NOTIFIED};
 
     private BigDecimal amount;
     private String currency;

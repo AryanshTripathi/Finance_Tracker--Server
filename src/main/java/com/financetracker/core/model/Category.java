@@ -22,9 +22,11 @@ public class Category {
     public enum CategoryType {INCOME, EXPENSE};
 
     private String name;
+
     @Enumerated(EnumType.STRING)
     private CategoryType type;
     private boolean isDefault;
+
     @CreationTimestamp
     private Instant createdAt;
     @UpdateTimestamp
@@ -32,4 +34,13 @@ public class Category {
 
     @Column(name = "owner_user_id")
     private UUID userId;
+
+    public Category() {}
+
+    public Category(String name, CategoryType type, UUID userId) {
+        this.name = name;
+        this.type = type;
+        this.userId = userId;
+        this.isDefault = false;
+    }
 }

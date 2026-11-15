@@ -9,4 +9,5 @@ import java.util.UUID;
 
 public interface CategoryRepository extends JpaRepository<Category, UUID> {
     List<Category> findByUserIdOrIsDefaultTrue(UUID userId);
+    boolean existsByNameAndUserId(String name, UUID userId);
 }
