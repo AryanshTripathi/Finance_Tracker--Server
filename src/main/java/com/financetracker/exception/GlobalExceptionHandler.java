@@ -22,9 +22,17 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler({InvalidStringUuidConversionException.class, TelegramGetUpdateException.class})
+    @ExceptionHandler({
+            InvalidStringUuidConversionException.class,
+            TelegramGetUpdateException.class,
+    })
     public ResponseEntity<ErrorResponse> handleStringToUuidConversionInJwt(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(OAuthStateNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStateInOAuth(OAuthStateNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(ex.getMessage()));
     }
 
     @ExceptionHandler(CodeInvalidException.class)
