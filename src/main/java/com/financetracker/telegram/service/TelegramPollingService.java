@@ -7,6 +7,8 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.financetracker.config.RabbitmqConfig;
+import com.financetracker.core.dto.TransactionIngestedEvent;
 import com.financetracker.core.model.Category;
 import com.financetracker.core.model.Transaction;
 import com.financetracker.core.model.User;
@@ -22,6 +24,7 @@ import com.financetracker.telegram.model.TelegramMessageTransaction;
 import com.financetracker.telegram.repository.BotOffsetRepository;
 import com.financetracker.telegram.repository.TelegramLinkRepository;
 import com.financetracker.telegram.repository.TelegramMessageTransactionRepository;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -101,8 +104,10 @@ public class TelegramPollingService {
         botOffsetRepository.save(offsetRecord);
     }
 
-//    @Scheduled(fixedDelay =  5 * 60 * 1000L)
-    public void pollRabbitMqMessage(UUID userId, UUID transactionId) {
+    @RabbitListener(queues = RabbitmqConfig.GMAIL_INGESTED_QUEUE)
+    public void pollRabbitMqMessage(TransactionIngestedEvent event) {
+        UUID userId = event.userId();
+        UUID transactionId = event.transactionId();
         User user = userRepository.findById(userId).orElseThrow(UserNotRegisteredException::new);
         Long chatId = user.getTelegramChatId();
         if(chatId == null) {
